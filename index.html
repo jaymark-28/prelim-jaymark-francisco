@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Calculator</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: gray;
+
+        }
+        h1 {
+            text-align: center;
+            color: #000000;
+        }
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 5px 5px 10px 5px;
+
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #f6ff00;
+        }
+        .result, .error {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .result {
+            background-color: #e8f5e9;
+            border: 1px solid #c8e6c9;
+        }
+        .error {
+            background-color: #ffebee;
+            border: 1px solid #ffcdd2;
+            color: #c62828;
+        }
+        .deans-list {
+            font-weight: bold;
+            color: #1b5e20;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Grade Calculator</h1>
+    <form id="grade-form">
+        <label for="prelim_exam">Prelim Exam:</label>
+        <input type="number" id="prelim_exam" step="0.01" required>
+
+        <label for="absences">Number of Absences:</label>
+        <input type="number" id="absences" step="1" required>
+
+        <label for="quizzes">Quizzes:</label>
+        <input type="number" id="quizzes" step="0.01" required>
+
+        <label for="requirements">Requirements:</label>
+        <input type="number" id="requirements" step="0.01" required>
+
+        <label for="recitation">Recitation:</label>
+        <input type="number" id="recitation" step="0.01" required>
+
+        <button type="button" id="calculate-btn">Calculate</button>
+    </form>
+
+    <div id="result" class="result" role="status" aria-live="polite"></div>
+    <div id="error" class="error" role="alert"></div>
+
+    <py-script>
+from js import document
+from pyodide.ffi import create_proxy
+
+def calculate_grades(event):
+    PASSING_GRADE = 75
+    DEANS_LIST_GRADE = 90
+    PRELIM_EXAM_WEIGHT = 0.6
+    ATTENDANCE_WEIGHT = 0.1
+    CLASS_STANDING_WEIGHT = 0.3
+    MIDTERM_WEIGHT = 0.3
+    FINAL_WEIGHT = 0.5
+    PRELIM_GRADE_WEIGHT = 0.2
+    ABSENCE_DEDUCTION = 2
+
+    try:
+        prelim_exam = float(document.getElementById('prelim_exam').value)
+        absences = int(document.getElementById('absences').value)
+        quizzes = float(document.getElementById('quizzes').value)
+        requirements = float(document.getElementById('requirements').value)
+        recitation = float(document.getElementById('recitation').value)
+
+        attendance = max(100 - (absences * ABSENCE_DEDUCTION), 0)
+
+        class_standing = round(
+            (0.4 * quizzes) +
+            (0.3 * requirements) +
+            (0.3 * recitation),
+            2
+        )
+
+        prelim_grade = round(
+            (PRELIM_EXAM_WEIGHT * prelim_exam) +
+            (ATTENDANCE_WEIGHT * attendance) +
+            (CLASS_STANDING_WEIGHT * class_standing),
+            2
+        )
+
+        if absences >= 4:
+            document.getElementById('result').innerHTML = ""
+            document.getElementById('error').innerHTML = "Failed due to 4 or more absences."
+        else:
+            remaining_weight = MIDTERM_WEIGHT + FINAL_WEIGHT
+            required_midterm_final = (PASSING_GRADE - (PRELIM_GRADE_WEIGHT * prelim_grade)) / remaining_weight
+
+            if required_midterm_final > 100:
+                document.getElementById('result').innerHTML = ""
+                document.getElementById('error').innerHTML = "It's mathematically impossible to pass with the given prelim grade."
+            else:
+                required_grade = min(max(round(required_midterm_final, 2), 0), 100)
+                deans_list_status = "You are on track for the Dean's List!" if prelim_grade >= DEANS_LIST_GRADE else "You need to improve your grade to reach the Dean's List."
+                result_text = f"""
+                <strong>Overall Prelim Score:</strong> {prelim_grade}<br>
+                <strong>Required Midterm/Final Grade:</strong> {required_grade}<br>
+                <div class='deans-list'>{deans_list_status}</div>
+                """
+                document.getElementById('result').innerHTML = result_text
+                document.getElementById('error').innerHTML = ""
+
+    except ValueError:
+        document.getElementById('result').innerHTML = ""
+        document.getElementById('error').innerHTML = "Invalid input. Please enter numbers only."
+
+calculate_proxy = create_proxy(calculate_grades)
+document.getElementById("calculate-btn").addEventListener("click", calculate_proxy)
+    </py-script>
+</body>
+</html>
